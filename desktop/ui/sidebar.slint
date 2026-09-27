@@ -2,6 +2,7 @@ import { Theme } from "theme.slint";
 import {
     IconRocket,
     IconCloud,
+    IconCert,
     IconSetting,
     IconLog,
     IconAbout,
@@ -12,6 +13,7 @@ import { AppMeta } from "version.slint";
 export enum AppPage {
     launch,
     tunnel,
+    cert,
     config,
     logger,
     about,
@@ -144,6 +146,19 @@ export component Sidebar inherits Rectangle {
     NavButton {
         x: (parent.width - root.nav-size) / 2;
         y: root.nav-top + (root.nav-size + root.nav-gap) * 2;
+        active: root.page == AppPage.cert;
+        clicked => { root.page = AppPage.cert; }
+        IconCert {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            size: 22px;
+            tint: root.page == AppPage.cert ? Theme.accent : Theme.nav-idle;
+        }
+    }
+
+    NavButton {
+        x: (parent.width - root.nav-size) / 2;
+        y: root.nav-top + (root.nav-size + root.nav-gap) * 3;
         active: root.page == AppPage.config;
         clicked => { root.page = AppPage.config; }
         IconSetting {
@@ -156,7 +171,7 @@ export component Sidebar inherits Rectangle {
 
     NavButton {
         x: (parent.width - root.nav-size) / 2;
-        y: root.nav-top + (root.nav-size + root.nav-gap) * 3;
+        y: root.nav-top + (root.nav-size + root.nav-gap) * 4;
         active: root.page == AppPage.logger;
         clicked => { root.page = AppPage.logger; }
         IconLog {
@@ -169,7 +184,7 @@ export component Sidebar inherits Rectangle {
 
     NavButton {
         x: (parent.width - root.nav-size) / 2;
-        y: root.nav-top + (root.nav-size + root.nav-gap) * 4;
+        y: root.nav-top + (root.nav-size + root.nav-gap) * 5;
         active: root.page == AppPage.about;
         clicked => { root.page = AppPage.about; }
         IconAbout {

@@ -21,7 +21,7 @@
     <img src="https://img.shields.io/badge/Rust-Tokio-orange?style=for-the-badge&logo=rust&logoColor=white" alt="Rust"/>
   </a>
   <a href="https://github.com/orbien-org/orbien/releases">
-    <img src="https://img.shields.io/badge/orbien-3.7.0-blue?style=for-the-badge" alt="orbien:3.7.0"/>
+    <img src="https://img.shields.io/badge/orbien-3.8.0-blue?style=for-the-badge" alt="orbien:3.8.0"/>
   </a>
   <a href="https://somsubhra.github.io/github-release-stats/?username=orbien-org&repository=orbien">
     <img src="https://img.shields.io/github/downloads/orbien-org/orbien/total?style=for-the-badge" alt="Downloads"/>
@@ -53,7 +53,7 @@
 - **传输协议**：支持 TCP、KCP、WebSocket、QUIC，支持TCP多路复用
 - **安全加密**：支持 Token 隧道鉴权以及Tls和mTLS加密传输；HTTPS采用透明转发和客户端TLS终止
 - **多平台支持**：支持 Windows、Linux、macOS、freeBSD 等多平台
-- **运维管理**：提供轻量Web管理界面和跨平台原生桌面客户端，便于配置和监控
+- **运维管理**：提供轻量服务端 Web 管理界面和跨平台原生桌面客户端；支持配置热重载和 ACME 证书自动申请
 
 ## 快速开始
 

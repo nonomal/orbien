@@ -6,6 +6,7 @@ export component FormField inherits Rectangle {
     in property <string> label;
     in-out property <string> value;
     in property <string> placeholder: "";
+    in property <bool> read-only: false;
     vertical-stretch: 0;
     horizontal-stretch: 1;
     height: 60px;
@@ -30,6 +31,7 @@ export component FormField inherits Rectangle {
         height: 36px;
         text <=> root.value;
         placeholder-text: root.placeholder;
+        read-only: root.read-only;
     }
 }
 

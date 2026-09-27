@@ -22,7 +22,7 @@ component ConsoleSearch inherits Rectangle {
     height: 34px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    border-radius: 6px;
+    border-radius: Theme.radius;
     background: #ffffff12;
     border-width: 1px;
     border-color: root.focused ? #ffffff44 : #ffffff22;
@@ -297,7 +297,7 @@ export component LoggerPage inherits Rectangle {
                         clicked => { root.clear-clicked(); }
 
                         Rectangle {
-                            border-radius: 6px;
+                            border-radius: Theme.radius;
                             background: parent.has-hover ? #ffffff24 : #ffffff14;
                             border-width: 1px;
                             border-color: #ffffff2e;

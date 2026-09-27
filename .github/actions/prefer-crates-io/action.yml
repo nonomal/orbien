@@ -1,0 +1,29 @@
+name: Prefer crates.io
+description: Strip project-level crates.io mirrors for CI
+
+runs:
+  using: composite
+  steps:
+    - name: Clear crates.io mirrors
+      shell: bash
+      run: |
+        set -euo pipefail
+        conf=".cargo/config.toml"
+        if [ ! -f "$conf" ]; then
+          exit 0
+        fi
+        if ! grep -Eq '^\[source\.|replace-with\s*=' "$conf"; then
+          exit 0
+        fi
+
+        echo "strip crates.io mirror from $conf"
+        cp "$conf" "$conf.ci-bak"
+        awk '
+          /^\[source\./ { skip = 1; next }
+          /^\[/ { skip = 0 }
+          skip { next }
+          { print }
+        ' "$conf.ci-bak" > "$conf"
+        if [ ! -s "$conf" ]; then
+          rm -f "$conf"
+        fi

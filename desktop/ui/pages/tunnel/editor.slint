@@ -18,7 +18,11 @@ export component TunnelEditor inherits Rectangle {
     in-out property <int> edit-bandwidth-side-index: 0;
     in-out property <int> edit-proxy-protocol-index: 0;
     in-out property <bool> edit-plugin-tls-term: false;
-    in-out property <string> edit-plugin-local-addr: "127.0.0.1:80";
+    in-out property <string> edit-plugin-local-addr: "127.0.0.1:8080";
+
+    in-out property <int> edit-cert-source-index: 1;
+    in-out property <int> edit-cert-library-index: 0;
+    in property <[string]> cert-library-labels;
     in-out property <string> edit-plugin-cert-file: "";
     in-out property <string> edit-plugin-key-file: "";
     in-out property <string> edit-plugin-host-rewrite: "";
@@ -33,6 +37,8 @@ export component TunnelEditor inherits Rectangle {
     private property <bool> is-https: root.edit-type-index == 3;
     private property <bool> is-domain: root.edit-type-index == 2 || root.edit-type-index == 3;
     private property <bool> use-plugin: root.is-https && root.edit-plugin-tls-term;
+    private property <bool> use-cert-library: root.use-plugin && root.edit-cert-source-index == 0;
+    private property <bool> use-cert-file: root.use-plugin && root.edit-cert-source-index == 1;
 
     callback save-clicked;
     callback cancel-clicked;
@@ -108,21 +114,21 @@ export component TunnelEditor inherits Rectangle {
             }
         }
 
+        if root.is-socks5: FormField {
+            label: Tr.tunnel-remote-port;
+            value <=> root.edit-remote-port;
+            placeholder: "9000";
+        }
+
         if root.is-socks5: FormRow {
-            FormField {
-                label: Tr.tunnel-remote-port;
-                value <=> root.edit-remote-port;
-                placeholder: "9000";
-            }
             FormField {
                 label: Tr.tunnel-plugin-username;
                 value <=> root.edit-plugin-username;
             }
-        }
-
-        if root.is-socks5: FormField {
-            label: Tr.tunnel-plugin-password;
-            value <=> root.edit-plugin-password;
+            FormField {
+                label: Tr.tunnel-plugin-password;
+                value <=> root.edit-plugin-password;
+            }
         }
 
         if root.is-http: FormRow {
@@ -138,23 +144,17 @@ export component TunnelEditor inherits Rectangle {
             }
         }
 
-        if root.is-https && !root.use-plugin: FormRow {
+        if root.is-https: FormRow {
             FormField {
                 label: Tr.tunnel-local-port;
                 value <=> root.edit-local-port;
-                placeholder: "443";
+                placeholder: root.use-plugin ? "8080" : "443";
             }
             FormField {
                 label: Tr.tunnel-domains;
                 value <=> root.edit-domains;
                 placeholder: Tr.tunnel-domains-hint;
             }
-        }
-
-        if root.is-https && root.use-plugin: FormField {
-            label: Tr.tunnel-domains;
-            value <=> root.edit-domains;
-            placeholder: Tr.tunnel-domains-hint;
         }
 
         TouchArea {
@@ -246,9 +246,9 @@ export component TunnelEditor inherits Rectangle {
                     alignment: stretch;
                     FormRow {
                         FormField {
-                            label: Tr.tunnel-plugin-local-addr;
-                            value <=> root.edit-plugin-local-addr;
-                            placeholder: "127.0.0.1:80";
+                            label: Tr.tunnel-local-ip;
+                            value <=> root.edit-local-ip;
+                            placeholder: "127.0.0.1";
                         }
                         FormField {
                             label: Tr.tunnel-host-rewrite;
@@ -257,6 +257,18 @@ export component TunnelEditor inherits Rectangle {
                         }
                     }
                     FormRow {
+                        FormCombo {
+                            label: Tr.tunnel-cert-source;
+                            model: [Tr.tunnel-cert-library, Tr.tunnel-cert-file, Tr.tunnel-cert-self];
+                            current-index <=> root.edit-cert-source-index;
+                        }
+                        if root.use-cert-library: FormCombo {
+                            label: Tr.tunnel-cert-pick;
+                            model: root.cert-library-labels;
+                            current-index <=> root.edit-cert-library-index;
+                        }
+                    }
+                    if root.use-cert-file: FormRow {
                         FormPathField {
                             label: Tr.tunnel-plugin-cert;
                             value <=> root.edit-plugin-cert-file;

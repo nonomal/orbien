@@ -5,6 +5,7 @@ import { Theme } from "theme.slint";
 import { Sidebar, AppPage } from "sidebar.slint";
 import { LaunchPage } from "pages/launch.slint";
 import { TunnelPage, TunnelRow } from "pages/tunnel.slint";
+import { CertPage, CertRow, KeyRow } from "pages/cert.slint";
 import { ConfigPage } from "pages/config.slint";
 import { LoggerPage, LogLine } from "pages/logger.slint";
 import { AboutPage } from "pages/about_page.slint";
@@ -14,7 +15,7 @@ import { Tr } from "i18n.slint";
 import { AppMeta } from "version.slint";
 import { OrbienTray } from "tray.slint";
 
-export { AppPage, TunnelRow, LogLine, Tr, AboutDialog, AppMeta, Theme, OrbienTray }
+export { AppPage, TunnelRow, CertRow, KeyRow, LogLine, Tr, AboutDialog, AppMeta, Theme, OrbienTray }
 export component AppWindow inherits Window {
     title: "Orbien Desktop";
     default-font-family: "Noto Sans SC";
@@ -119,7 +120,10 @@ export component AppWindow inherits Window {
     in-out property <int> tunnel-edit-bandwidth-side-index: 0;
     in-out property <int> tunnel-edit-proxy-protocol-index: 0;
     in-out property <bool> tunnel-edit-plugin-tls-term: false;
-    in-out property <string> tunnel-edit-plugin-local-addr: "127.0.0.1:80";
+    in-out property <string> tunnel-edit-plugin-local-addr: "127.0.0.1:8080";
+    in-out property <int> tunnel-edit-cert-source-index: 1;
+    in-out property <int> tunnel-edit-cert-library-index: 0;
+    in-out property <[string]> cert-library-labels;
     in-out property <string> tunnel-edit-plugin-cert-file: "";
     in-out property <string> tunnel-edit-plugin-key-file: "";
     in-out property <string> tunnel-edit-plugin-host-rewrite: "";
@@ -127,6 +131,29 @@ export component AppWindow inherits Window {
     in-out property <string> tunnel-edit-plugin-password: "";
     in-out property <int> tunnel-edit-type-index: 0;
     in-out property <bool> tunnel-show-advanced: false;
+
+    // cert
+    in-out property <[CertRow]> cert-rows;
+    in-out property <[KeyRow]> key-rows;
+    in-out property <[string]> cert-key-labels;
+    in-out property <int> cert-tab-index: 0;
+    in-out property <int> cert-editor-mode: 0;
+    in-out property <bool> cert-issuing: false;
+    in-out property <int> cert-issue-step: -1;
+    in-out property <bool> cert-issue-failed: false;
+    in-out property <string> cert-apply-domains: "";
+    in-out property <int> cert-apply-key-index: 0;
+    in-out property <string> cert-key-edit-id: "";
+    in-out property <string> cert-key-edit-name: "";
+    in-out property <int> cert-key-edit-vendor-index: 0;
+    in-out property <string> cert-key-edit-access-key-id: "";
+    in-out property <string> cert-key-edit-secret: "";
+    in-out property <string> cert-detail-domains: "";
+    in-out property <string> cert-detail-not-after: "";
+    in-out property <string> cert-detail-provider-name: "";
+    in-out property <string> cert-detail-cert-path: "";
+    in-out property <string> cert-detail-key-path: "";
+    in-out property <string> cert-detail-id: "";
 
     // config
     in-out property <string> server-addr: "127.0.0.1";
@@ -183,6 +210,16 @@ export component AppWindow inherits Window {
     callback pick-file(string);
     callback logs-clear();
     callback log-query-edited(string);
+    callback cert-add();
+    callback cert-apply-submit();
+    callback cert-apply-cancel();
+    callback cert-key-save();
+    callback cert-key-cancel();
+    callback cert-key-edit(int);
+    callback cert-key-delete(int);
+    callback cert-detail(int);
+    callback cert-delete(int);
+    callback cert-detail-close();
 
     changed locale-index => {
         Tr.locale-index = root.locale-index;
@@ -259,6 +296,9 @@ export component AppWindow inherits Window {
                 edit-proxy-protocol-index <=> root.tunnel-edit-proxy-protocol-index;
                 edit-plugin-tls-term <=> root.tunnel-edit-plugin-tls-term;
                 edit-plugin-local-addr <=> root.tunnel-edit-plugin-local-addr;
+                edit-cert-source-index <=> root.tunnel-edit-cert-source-index;
+                edit-cert-library-index <=> root.tunnel-edit-cert-library-index;
+                cert-library-labels: root.cert-library-labels;
                 edit-plugin-cert-file <=> root.tunnel-edit-plugin-cert-file;
                 edit-plugin-key-file <=> root.tunnel-edit-plugin-key-file;
                 edit-plugin-host-rewrite <=> root.tunnel-edit-plugin-host-rewrite;
@@ -273,6 +313,44 @@ export component AppWindow inherits Window {
                 delete-row(i) => { root.tunnel-delete(i); }
                 copy-remote(text) => { root.tunnel-copy-remote(text); }
                 pick-file(target) => { root.pick-file(target); }
+            }
+
+            CertPage {
+                x: parent.content-x;
+                y: parent.content-y;
+                width: parent.content-w;
+                height: parent.content-h;
+                visible: root.page == AppPage.cert;
+                certs: root.cert-rows;
+                keys: root.key-rows;
+                key-labels: root.cert-key-labels;
+                tab-index <=> root.cert-tab-index;
+                editor-mode <=> root.cert-editor-mode;
+                issuing <=> root.cert-issuing;
+                issue-step <=> root.cert-issue-step;
+                issue-failed <=> root.cert-issue-failed;
+                apply-domains <=> root.cert-apply-domains;
+                apply-key-index <=> root.cert-apply-key-index;
+                key-edit-id <=> root.cert-key-edit-id;
+                key-edit-name <=> root.cert-key-edit-name;
+                key-edit-vendor-index <=> root.cert-key-edit-vendor-index;
+                key-edit-access-key-id <=> root.cert-key-edit-access-key-id;
+                key-edit-secret <=> root.cert-key-edit-secret;
+                detail-domains <=> root.cert-detail-domains;
+                detail-not-after <=> root.cert-detail-not-after;
+                detail-provider-name <=> root.cert-detail-provider-name;
+                detail-cert-path <=> root.cert-detail-cert-path;
+                detail-key-path <=> root.cert-detail-key-path;
+                add-clicked => { root.cert-add(); }
+                apply-submit => { root.cert-apply-submit(); }
+                apply-cancel => { root.cert-apply-cancel(); }
+                key-save => { root.cert-key-save(); }
+                key-cancel => { root.cert-key-cancel(); }
+                key-edit(i) => { root.cert-key-edit(i); }
+                key-delete(i) => { root.cert-key-delete(i); }
+                cert-detail(i) => { root.cert-detail(i); }
+                cert-delete(i) => { root.cert-delete(i); }
+                detail-close => { root.cert-detail-close(); }
             }
 
             ConfigPage {

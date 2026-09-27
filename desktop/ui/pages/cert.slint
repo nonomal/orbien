@@ -1,0 +1,871 @@
+import { ScrollView, Button } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { IconPlus } from "../icons.slint";
+import { Tr } from "../i18n.slint";
+import { FormField, FormCombo, FormRow } from "tunnel/fields.slint";
+
+export struct CertRow {
+    id: string,
+    domains: string,
+    not-after: string,
+    provider-id: string,
+    provider-name: string,
+    expired: bool,
+}
+
+export struct KeyRow {
+    id: string,
+    name: string,
+    vendor: string,
+    vendor-index: int,
+    access-key-id: string,
+    secret-mask: string,
+}
+
+component StatusBadge inherits Rectangle {
+    in property <bool> expired: false;
+    border-radius: 3px;
+    background: root.expired ? Theme.danger-soft : Theme.accent-soft;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    height: 22px;
+
+    HorizontalLayout {
+        padding-left: 7px;
+        padding-right: 7px;
+        Text {
+            text: root.expired ? Tr.cert-expired : Tr.cert-valid;
+            color: root.expired ? Theme.danger : Theme.accent-strong;
+            font-size: 12px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component CertCard inherits Rectangle {
+    in property <CertRow> item;
+    callback detail-clicked;
+    callback delete-clicked;
+
+    background: Theme.panel;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.line;
+    drop-shadow-blur: 12px;
+    drop-shadow-color: Theme.shadow-soft;
+    drop-shadow-offset-y: 3px;
+    clip: true;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: 12px;
+        spacing: 8px;
+        alignment: stretch;
+
+        HorizontalLayout {
+            alignment: space-between;
+            vertical-stretch: 0;
+            spacing: 12px;
+
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                horizontal-stretch: 1;
+
+                Text {
+                    text: root.item.domains;
+                    color: Theme.text;
+                    font-size: 17px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+
+                StatusBadge {
+                    expired: root.item.expired;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 14px;
+                alignment: start;
+                horizontal-stretch: 0;
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.detail-clicked(); }
+                    Text {
+                        text: Tr.cert-detail;
+                        color: Theme.accent;
+                        font-size: 14px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.delete-clicked(); }
+                    Text {
+                        text: Tr.delete;
+                        color: Theme.danger;
+                        font-size: 14px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: 6px;
+            vertical-stretch: 1;
+            alignment: stretch;
+
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: start;
+                vertical-stretch: 0;
+
+                Text {
+                    text: Tr.cert-issuer;
+                    color: Theme.muted;
+                    font-size: 14px;
+                    width: 64px;
+                    horizontal-stretch: 0;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: "Let's Encrypt";
+                    color: Theme.text;
+                    font-size: 15px;
+                    font-weight: 700;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: start;
+                vertical-stretch: 0;
+
+                Text {
+                    text: Tr.cert-not-after;
+                    color: Theme.muted;
+                    font-size: 14px;
+                    width: 64px;
+                    horizontal-stretch: 0;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.item.not-after;
+                    color: root.item.expired ? Theme.danger : Theme.text;
+                    font-size: 15px;
+                    font-weight: 700;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+export component CertCardGrid inherits Rectangle {
+    in property <[CertRow]> certs;
+    callback detail-row(int);
+    callback delete-row(int);
+
+    private property <length> gap: 14px;
+    private property <length> card-h: 118px;
+    private property <int> cols: self.width >= 900px ? 3 : 2;
+    private property <length> card-w: (self.width - root.gap * (root.cols - 1)) / root.cols;
+    private property <int> row-count:
+        root.certs.length == 0 ? 0
+        : Math.floor((root.certs.length + root.cols - 1) / root.cols);
+
+    height: root.row-count == 0 ? 0
+        : root.row-count * root.card-h + (root.row-count - 1) * root.gap;
+    background: transparent;
+
+    for c[i] in root.certs: CertCard {
+        x: Math.mod(i, root.cols) * (root.card-w + root.gap);
+        y: Math.floor(i / root.cols) * (root.card-h + root.gap);
+        width: root.card-w;
+        height: root.card-h;
+        item: c;
+        detail-clicked => { root.detail-row(i); }
+        delete-clicked => { root.delete-row(i); }
+    }
+}
+
+component KeyCard inherits Rectangle {
+    in property <KeyRow> item;
+    callback edit-clicked;
+    callback delete-clicked;
+
+    background: Theme.panel;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.line;
+    drop-shadow-blur: 12px;
+    drop-shadow-color: Theme.shadow-soft;
+    drop-shadow-offset-y: 3px;
+    clip: true;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: 12px;
+        spacing: 8px;
+        alignment: stretch;
+
+        HorizontalLayout {
+            alignment: space-between;
+            vertical-stretch: 0;
+            spacing: 12px;
+
+            Text {
+                text: root.item.name;
+                color: Theme.text;
+                font-size: 17px;
+                font-weight: 700;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+
+            HorizontalLayout {
+                spacing: 14px;
+                alignment: start;
+                horizontal-stretch: 0;
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.edit-clicked(); }
+                    Text {
+                        text: Tr.modify;
+                        color: Theme.accent;
+                        font-size: 14px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.delete-clicked(); }
+                    Text {
+                        text: Tr.delete;
+                        color: Theme.danger;
+                        font-size: 14px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: 6px;
+            vertical-stretch: 1;
+            alignment: stretch;
+
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: start;
+                vertical-stretch: 0;
+
+                Text {
+                    text: Tr.cert-key-vendor;
+                    color: Theme.muted;
+                    font-size: 14px;
+                    width: 40px;
+                    horizontal-stretch: 0;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.item.vendor;
+                    color: Theme.text;
+                    font-size: 15px;
+                    font-weight: 700;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: start;
+                vertical-stretch: 0;
+
+                Text {
+                    text: Tr.cert-key;
+                    color: Theme.muted;
+                    font-size: 14px;
+                    width: 40px;
+                    horizontal-stretch: 0;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.item.secret-mask;
+                    color: Theme.muted;
+                    font-size: 15px;
+                    font-weight: 700;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+export component KeyCardGrid inherits Rectangle {
+    in property <[KeyRow]> keys;
+    callback edit-row(int);
+    callback delete-row(int);
+
+    private property <length> gap: 14px;
+    private property <length> card-h: 118px;
+    private property <int> cols: self.width >= 900px ? 3 : 2;
+    private property <length> card-w: (self.width - root.gap * (root.cols - 1)) / root.cols;
+    private property <int> row-count:
+        root.keys.length == 0 ? 0
+        : Math.floor((root.keys.length + root.cols - 1) / root.cols);
+
+    height: root.row-count == 0 ? 0
+        : root.row-count * root.card-h + (root.row-count - 1) * root.gap;
+    background: transparent;
+
+    for k[i] in root.keys: KeyCard {
+        x: Math.mod(i, root.cols) * (root.card-w + root.gap);
+        y: Math.floor(i / root.cols) * (root.card-h + root.gap);
+        width: root.card-w;
+        height: root.card-h;
+        item: k;
+        edit-clicked => { root.edit-row(i); }
+        delete-clicked => { root.delete-row(i); }
+    }
+}
+
+component CertEditor inherits Rectangle {
+    background: Theme.panel;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.line;
+    drop-shadow-blur: 14px;
+    drop-shadow-color: Theme.shadow;
+    drop-shadow-offset-y: 4px;
+    vertical-stretch: 0;
+    width: 100%;
+
+    VerticalLayout {
+        padding: 20px;
+        padding-bottom: 12px;
+        spacing: 12px;
+        alignment: start;
+        @children
+    }
+}
+
+component ApplyStepRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <int> index;
+    in property <int> current;
+    in property <bool> failed: false;
+    spacing: 10px;
+    vertical-stretch: 0;
+    height: 34px;
+
+    private property <bool> done: root.current > root.index;
+    private property <bool> active: root.current == root.index;
+
+    Rectangle {
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        vertical-stretch: 0;
+        y: 13px;
+        background: root.active && root.failed ? Theme.danger
+            : (root.done || root.active ? Theme.accent : Theme.line);
+    }
+    Text {
+        text: root.label;
+        color: root.active && root.failed ? Theme.danger
+            : (root.active ? Theme.text
+            : (root.done ? Theme.accent-strong : Theme.muted));
+        font-size: 13px;
+        font-weight: root.active ? 700 : 500;
+        vertical-alignment: center;
+        horizontal-stretch: 1;
+        overflow: elide;
+    }
+}
+
+component ApplyProgressPanel inherits Rectangle {
+    in property <int> current: -1;
+    in property <bool> failed: false;
+    in property <bool> issuing: false;
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+    background: Theme.bg;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.line;
+
+    VerticalLayout {
+        padding: 16px;
+        padding-bottom: 20px;
+        spacing: 2px;
+        alignment: start;
+
+        Text {
+            text: root.issuing ? Tr.cert-issuing : Tr.cert-step-title;
+            color: root.failed ? Theme.danger : Theme.text;
+            font-size: 13px;
+            font-weight: 700;
+            height: 22px;
+            vertical-stretch: 0;
+            vertical-alignment: center;
+        }
+        Rectangle {
+            height: 10px;
+            vertical-stretch: 0;
+            background: transparent;
+        }
+        ApplyStepRow {
+            label: Tr.cert-step-prepare;
+            index: 0;
+            current: root.current;
+            failed: root.failed;
+        }
+        ApplyStepRow {
+            label: Tr.cert-step-order;
+            index: 1;
+            current: root.current;
+            failed: root.failed;
+        }
+        ApplyStepRow {
+            label: Tr.cert-step-dns;
+            index: 2;
+            current: root.current;
+            failed: root.failed;
+        }
+        ApplyStepRow {
+            label: Tr.cert-step-wait;
+            index: 3;
+            current: root.current;
+            failed: root.failed;
+        }
+        ApplyStepRow {
+            label: Tr.cert-step-validate;
+            index: 4;
+            current: root.current;
+            failed: root.failed;
+        }
+        ApplyStepRow {
+            label: Tr.cert-step-finalize;
+            index: 5;
+            current: root.current;
+            failed: root.failed;
+        }
+        ApplyStepRow {
+            label: Tr.cert-step-cleanup;
+            index: 6;
+            current: root.current;
+            failed: root.failed;
+        }
+    }
+}
+
+export component CertPage inherits Rectangle {
+    in property <[CertRow]> certs;
+    in property <[KeyRow]> keys;
+    in property <[string]> key-labels;
+    in-out property <int> tab-index: 0;
+    in-out property <int> editor-mode: 0;
+    in-out property <bool> issuing: false;
+    in-out property <int> issue-step: -1;
+    in-out property <bool> issue-failed: false;
+
+    in-out property <string> apply-domains: "";
+    in-out property <int> apply-key-index: 0;
+
+    in-out property <string> key-edit-id: "";
+    in-out property <string> key-edit-name: "";
+    in-out property <int> key-edit-vendor-index: 0;
+    in-out property <string> key-edit-access-key-id: "";
+    in-out property <string> key-edit-secret: "";
+
+    in-out property <string> detail-domains: "";
+    in-out property <string> detail-not-after: "";
+    in-out property <string> detail-provider-name: "";
+    in-out property <string> detail-cert-path: "";
+    in-out property <string> detail-key-path: "";
+
+    callback add-clicked;
+    callback apply-submit;
+    callback apply-cancel;
+    callback key-save;
+    callback key-cancel;
+    callback key-edit(int);
+    callback key-delete(int);
+    callback cert-detail(int);
+    callback cert-delete(int);
+    callback detail-close;
+
+    private property <bool> show-list: root.editor-mode == 0;
+    private property <bool> show-apply: root.editor-mode == 1;
+    private property <bool> show-key-form: root.editor-mode == 2;
+    private property <bool> show-detail: root.editor-mode == 3;
+    private property <bool> vendor-needs-ak: root.key-edit-vendor-index != 2;
+
+    background: transparent;
+    min-height: Theme.page-min-height;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        spacing: 16px;
+        alignment: stretch;
+
+        HorizontalLayout {
+            height: 38px;
+            vertical-stretch: 0;
+            spacing: 10px;
+            Text {
+                text: Tr.cert-title;
+                color: Theme.accent;
+                font-size: 22px;
+                font-weight: 700;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            if root.show-list: TouchArea {
+                width: 38px;
+                height: 38px;
+                mouse-cursor: pointer;
+                clicked => { root.add-clicked(); }
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: Theme.radius;
+                    background: Theme.accent;
+                    IconPlus {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        size: 16px;
+                        tint: white;
+                    }
+                }
+            }
+        }
+
+        if root.show-list: HorizontalLayout {
+            height: 34px;
+            vertical-stretch: 0;
+            spacing: 4px;
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.tab-index = 0; }
+                VerticalLayout {
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        Text {
+                            text: Tr.cert-tab-certs;
+                            color: root.tab-index == 0 ? Theme.accent : Theme.muted;
+                            font-size: 13px;
+                            font-weight: 600;
+                        }
+                    }
+                    Rectangle {
+                        height: 2px;
+                        background: root.tab-index == 0 ? Theme.accent : transparent;
+                    }
+                }
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.tab-index = 1; }
+                VerticalLayout {
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        Text {
+                            text: Tr.cert-tab-keys;
+                            color: root.tab-index == 1 ? Theme.accent : Theme.muted;
+                            font-size: 13px;
+                            font-weight: 600;
+                        }
+                    }
+                    Rectangle {
+                        height: 2px;
+                        background: root.tab-index == 1 ? Theme.accent : transparent;
+                    }
+                }
+            }
+        }
+
+        if root.show-list && root.tab-index == 0: ScrollView {
+            vertical-stretch: 1;
+            width: 100%;
+            viewport-width: self.width;
+            VerticalLayout {
+                width: 100%;
+                spacing: 14px;
+                padding-right: 4px;
+                padding-bottom: 8px;
+                alignment: stretch;
+                if root.certs.length == 0: Rectangle {
+                    background: Theme.panel;
+                    border-radius: Theme.radius;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    height: 120px;
+                    vertical-stretch: 0;
+                    VerticalLayout {
+                        padding: 24px;
+                        alignment: center;
+                        Text {
+                            text: Tr.cert-empty;
+                            color: Theme.muted;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+                if root.certs.length > 0: CertCardGrid {
+                    width: 100%;
+                    vertical-stretch: 0;
+                    certs: root.certs;
+                    detail-row(i) => { root.cert-detail(i); }
+                    delete-row(i) => { root.cert-delete(i); }
+                }
+            }
+        }
+
+        if root.show-list && root.tab-index == 1: ScrollView {
+            vertical-stretch: 1;
+            width: 100%;
+            viewport-width: self.width;
+            VerticalLayout {
+                width: 100%;
+                spacing: 14px;
+                padding-right: 4px;
+                padding-bottom: 8px;
+                alignment: stretch;
+                if root.keys.length == 0: Rectangle {
+                    background: Theme.panel;
+                    border-radius: Theme.radius;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    height: 120px;
+                    vertical-stretch: 0;
+                    VerticalLayout {
+                        padding: 24px;
+                        alignment: center;
+                        Text {
+                            text: Tr.cert-key-empty;
+                            color: Theme.muted;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+                if root.keys.length > 0: KeyCardGrid {
+                    width: 100%;
+                    vertical-stretch: 0;
+                    keys: root.keys;
+                    edit-row(i) => { root.key-edit(i); }
+                    delete-row(i) => { root.key-delete(i); }
+                }
+            }
+        }
+
+        if !root.show-list: ScrollView {
+            vertical-stretch: 1;
+            width: 100%;
+            viewport-width: self.width;
+            VerticalLayout {
+                width: 100%;
+                spacing: 0;
+                padding-bottom: 12px;
+                alignment: start;
+
+                if root.show-apply: CertEditor {
+                    vertical-stretch: 0;
+                    HorizontalLayout {
+                        height: 36px;
+                        vertical-stretch: 0;
+                        spacing: 12px;
+                        Text {
+                            text: Tr.cert-apply-title;
+                            color: Theme.text;
+                            font-size: 16px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+                        Button {
+                            text: Tr.cancel;
+                            height: 32px;
+                            vertical-stretch: 0;
+                            clicked => { root.apply-cancel(); }
+                        }
+                        Button {
+                            text: root.issuing ? Tr.cert-issuing : Tr.cert-apply;
+                            primary: true;
+                            height: 32px;
+                            vertical-stretch: 0;
+                            enabled: !root.issuing;
+                            clicked => { root.apply-submit(); }
+                        }
+                    }
+
+                    FormRow {
+                        FormCombo {
+                            label: Tr.cert-issuer;
+                            model: ["Let's Encrypt"];
+                            current-index: 0;
+                        }
+                        FormCombo {
+                            label: Tr.cert-key;
+                            model: root.key-labels;
+                            current-index <=> root.apply-key-index;
+                        }
+                    }
+                    FormField {
+                        label: Tr.cert-domains;
+                        value <=> root.apply-domains;
+                        placeholder: Tr.cert-domains-hint;
+                        read-only: root.issuing;
+                    }
+
+                    if root.issue-step >= 0: ApplyProgressPanel {
+                        current: root.issue-step;
+                        failed: root.issue-failed;
+                        issuing: root.issuing;
+                    }
+                }
+
+                if root.show-key-form: CertEditor {
+                    HorizontalLayout {
+                        height: 36px;
+                        vertical-stretch: 0;
+                        spacing: 12px;
+                        Text {
+                            text: root.key-edit-id == "" ? Tr.cert-key-add : Tr.cert-key-edit;
+                            color: Theme.text;
+                            font-size: 16px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+                        Button {
+                            text: Tr.cancel;
+                            height: 32px;
+                            vertical-stretch: 0;
+                            clicked => { root.key-cancel(); }
+                        }
+                        Button {
+                            text: Tr.save;
+                            primary: true;
+                            height: 32px;
+                            vertical-stretch: 0;
+                            clicked => { root.key-save(); }
+                        }
+                    }
+
+                    FormRow {
+                        FormField {
+                            label: Tr.cert-key-name;
+                            value <=> root.key-edit-name;
+                        }
+                        FormCombo {
+                            label: Tr.cert-key-vendor;
+                            model: ["Aliyun", "Tencent", "Cloudflare"];
+                            current-index <=> root.key-edit-vendor-index;
+                        }
+                    }
+                    if root.vendor-needs-ak: FormField {
+                        label: root.key-edit-vendor-index == 0 ? Tr.cert-access-key-id : Tr.cert-secret-id;
+                        value <=> root.key-edit-access-key-id;
+                    }
+                    FormField {
+                        label: root.key-edit-vendor-index == 2 ? Tr.cert-api-token
+                            : (root.key-edit-vendor-index == 0 ? Tr.cert-access-key-secret : Tr.cert-secret-key);
+                        value <=> root.key-edit-secret;
+                        placeholder: root.key-edit-id == "" ? "" : Tr.cert-secret-keep;
+                    }
+                }
+
+                if root.show-detail: CertEditor {
+                    HorizontalLayout {
+                        height: 36px;
+                        vertical-stretch: 0;
+                        spacing: 12px;
+                        Text {
+                            text: Tr.cert-detail-title;
+                            color: Theme.text;
+                            font-size: 16px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+                        Button {
+                            text: Tr.cancel;
+                            height: 32px;
+                            vertical-stretch: 0;
+                            clicked => { root.detail-close(); }
+                        }
+                    }
+
+                    FormRow {
+                        FormField {
+                            label: Tr.cert-domains;
+                            value <=> root.detail-domains;
+                            read-only: true;
+                        }
+                        FormField {
+                            label: Tr.cert-issuer;
+                            value: "Let's Encrypt";
+                            read-only: true;
+                        }
+                    }
+                    FormRow {
+                        FormField {
+                            label: Tr.cert-not-after;
+                            value <=> root.detail-not-after;
+                            read-only: true;
+                        }
+                        FormField {
+                            label: Tr.cert-key;
+                            value <=> root.detail-provider-name;
+                            read-only: true;
+                        }
+                    }
+                    FormField {
+                        label: Tr.tunnel-plugin-cert;
+                        value <=> root.detail-cert-path;
+                        read-only: true;
+                    }
+                    FormField {
+                        label: Tr.tunnel-plugin-key;
+                        value <=> root.detail-key-path;
+                        read-only: true;
+                    }
+                }
+            }
+        }
+    }
+}

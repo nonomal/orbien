@@ -90,16 +90,56 @@ pub fn tunnel_persist_failed(locale: Locale, err: &str) -> String {
     msg_fmt(locale, "msg.tunnel-persist-failed", &[("{err}", err)])
 }
 
-pub fn tunnel_plugin_addr_required(locale: Locale) -> String {
-    msg(locale, "msg.tunnel-plugin-addr-required")
-}
-
 pub fn tunnel_plugin_username_required(locale: Locale) -> String {
     msg(locale, "msg.tunnel-plugin-username-required")
 }
 
 pub fn tunnel_plugin_password_required(locale: Locale) -> String {
     msg(locale, "msg.tunnel-plugin-password-required")
+}
+
+pub fn cert_saved(locale: Locale) -> String {
+    msg(locale, "cert-saved")
+}
+
+pub fn cert_deleted(locale: Locale) -> String {
+    msg(locale, "cert-deleted")
+}
+
+pub fn cert_applied(locale: Locale) -> String {
+    msg(locale, "cert-applied")
+}
+
+pub fn cert_in_use(locale: Locale) -> String {
+    msg(locale, "cert-in-use")
+}
+
+pub fn cert_need_key(locale: Locale) -> String {
+    msg(locale, "cert-need-key")
+}
+
+pub fn cert_domains_required(locale: Locale) -> String {
+    msg(locale, "cert-domains-required")
+}
+
+pub fn cert_key_name_required(locale: Locale) -> String {
+    msg(locale, "cert-key-name-required")
+}
+
+pub fn cert_secret_required(locale: Locale) -> String {
+    msg(locale, "cert-secret-required")
+}
+
+pub fn cert_issue_failed(locale: Locale, err: &str) -> String {
+    msg_fmt(locale, "cert-issue-failed", &[("{err}", err)])
+}
+
+pub fn cert_issue_timeout(locale: Locale) -> String {
+    msg(locale, "cert-issue-timeout")
+}
+
+pub fn cert_issue_cancelled(locale: Locale) -> String {
+    msg(locale, "cert-issue-cancelled")
 }
 
 pub fn tunnel_copied(locale: Locale) -> String {

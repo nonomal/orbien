@@ -47,7 +47,7 @@ export component TunnelCard inherits Rectangle {
         : root.item.local-port != "" ? root.item.local-port : "—";
 
     background: Theme.panel;
-    border-radius: 12px;
+    border-radius: Theme.radius;
     border-width: 1px;
     border-color: Theme.line;
     drop-shadow-blur: 12px;
@@ -180,7 +180,7 @@ export component TunnelCard inherits Rectangle {
                     clicked => { root.copy-clicked(root.remote-text); }
                     Rectangle {
                         height: 22px;
-                        border-radius: 3px;
+                        border-radius: Theme.radius;
                         background: Theme.accent-soft;
                         HorizontalLayout {
                             padding-left: 8px;

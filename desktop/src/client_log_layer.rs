@@ -25,7 +25,10 @@ where
             return;
         }
         let target = meta.target();
-        if !(target.starts_with("orbien_client") || target.starts_with("orbien_core")) {
+        if !(target.starts_with("orbien_client")
+            || target.starts_with("orbien_core")
+            || target.starts_with("orbien_desktop"))
+        {
             return;
         }
 

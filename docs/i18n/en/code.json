@@ -405,7 +405,7 @@
     "message": "Multiple Transports"
   },
   "homepage.feature.transport.desc": {
-    "message": "Supports TCP, QUIC, KCP, and WebSocket transports, plus TCP multiplexing"
+    "message": "Supports TCP, QUIC, KCP, and WebSocket; TCP multiplexing included"
   },
   "homepage.feature.security.title": {
     "message": "Security & Encryption"
@@ -417,7 +417,7 @@
     "message": "Visual Ops"
   },
   "homepage.feature.ops.desc": {
-    "message": "Built-in lightweight server web UI and native desktop client for easier ops, monitoring, and higher productivity"
+    "message": "Built-in lightweight server Web UI and native desktop client; config hot-reload and ACME certificate automation"
   },
   "homepage.feature.platform.title": {
     "message": "Cross-Platform"

@@ -81,17 +81,6 @@ mkdir -p "$STAGE"
 
 EXE_NAME="Orbien-Desktop.exe"
 cp "$BIN" "${STAGE}/${EXE_NAME}"
-STANDALONE="${OUTDIR}/orbien-desktop_${VERSION}_windows_${ARCH_LABEL}.exe"
-cp "$BIN" "$STANDALONE"
-
-cat > "${STAGE}/README.txt" <<EOF
-Orbien Desktop ${VERSION}
-
-1. Double-click Orbien-Desktop.exe to run.
-2. No installer required (portable).
-3. Config defaults to %USERPROFILE%\\.config\\orbien\\orbien.toml
-   (or the path set in the Config page).
-EOF
 
 ZIP_NAME="orbien-desktop_${VERSION}_windows_${ARCH_LABEL}.zip"
 ZIP_PATH="${OUTDIR}/${ZIP_NAME}"
@@ -118,6 +107,5 @@ else
 fi
 
 rm -rf "$STAGE"
-echo "wrote ${STANDALONE}"
 echo "wrote ${ZIP_PATH}"
-ls -lh "$STANDALONE" "$ZIP_PATH"
+ls -lh "$ZIP_PATH"

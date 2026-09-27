@@ -1,4 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod cert;
+mod cert_bridge;
 mod client_log_layer;
 mod config_bridge;
 mod i18n;
@@ -375,7 +377,9 @@ fn reset_tunnel_form(ui: &AppWindow) {
     ui.set_tunnel_edit_bandwidth_side_index(0);
     ui.set_tunnel_edit_proxy_protocol_index(0);
     ui.set_tunnel_edit_plugin_tls_term(false);
-    ui.set_tunnel_edit_plugin_local_addr("127.0.0.1:80".into());
+    ui.set_tunnel_edit_plugin_local_addr("127.0.0.1:8080".into());
+    ui.set_tunnel_edit_cert_source_index(1);
+    ui.set_tunnel_edit_cert_library_index(0);
     ui.set_tunnel_edit_plugin_cert_file("".into());
     ui.set_tunnel_edit_plugin_key_file("".into());
     ui.set_tunnel_edit_plugin_host_rewrite("".into());
@@ -407,10 +411,54 @@ fn fill_tunnel_form(ui: &AppWindow, row: &TunnelRow) {
     ui.set_tunnel_edit_plugin_local_addr(row.plugin_local_addr.clone());
     ui.set_tunnel_edit_plugin_cert_file(row.plugin_cert_file.clone());
     ui.set_tunnel_edit_plugin_key_file(row.plugin_key_file.clone());
+
+    let cert = row.plugin_cert_file.as_str().trim();
+    let key = row.plugin_key_file.as_str().trim();
+    if !row.plugin_tls_term {
+        ui.set_tunnel_edit_cert_source_index(1);
+        ui.set_tunnel_edit_cert_library_index(0);
+    } else if cert.is_empty() && key.is_empty() {
+        ui.set_tunnel_edit_cert_source_index(2);
+        ui.set_tunnel_edit_cert_library_index(0);
+    } else if let Some(idx) = cert_bridge::find_library_index(cert, key) {
+        ui.set_tunnel_edit_cert_source_index(0);
+        ui.set_tunnel_edit_cert_library_index(idx);
+    } else {
+        ui.set_tunnel_edit_cert_source_index(1);
+        ui.set_tunnel_edit_cert_library_index(0);
+    }
     ui.set_tunnel_edit_plugin_host_rewrite(row.plugin_host_rewrite.clone());
     ui.set_tunnel_edit_plugin_username(row.plugin_username.clone());
     ui.set_tunnel_edit_plugin_password(row.plugin_password.clone());
     ui.set_tunnel_show_advanced(false);
+}
+
+fn resolve_tunnel_cert_paths(ui: &AppWindow) -> (String, String) {
+    match ui.get_tunnel_edit_cert_source_index() {
+        0 => {
+            if let Some(id) =
+                cert_bridge::library_cert_id_at(ui.get_tunnel_edit_cert_library_index())
+            {
+                if let Ok((c, k)) = cert_bridge::resolve_library_paths(&id) {
+                    return (c, k);
+                }
+            }
+            (String::new(), String::new())
+        }
+        2 => (String::new(), String::new()),
+        _ => (
+            ui.get_tunnel_edit_plugin_cert_file().to_string(),
+            ui.get_tunnel_edit_plugin_key_file().to_string(),
+        ),
+    }
+}
+
+fn resolve_tunnel_cert_file(ui: &AppWindow) -> String {
+    resolve_tunnel_cert_paths(ui).0
+}
+
+fn resolve_tunnel_key_file(ui: &AppWindow) -> String {
+    resolve_tunnel_cert_paths(ui).1
 }
 
 fn collect_tunnel_form(ui: &AppWindow) -> TunnelRow {
@@ -422,12 +470,12 @@ fn collect_tunnel_form(ui: &AppWindow) -> TunnelRow {
     TunnelRow {
         name: ui.get_tunnel_edit_name(),
         tunnel_type: ty.into(),
-        local_ip: if plugin || is_socks5 {
+        local_ip: if is_socks5 {
             "".into()
         } else {
             ui.get_tunnel_edit_local_ip()
         },
-        local_port: if plugin || is_socks5 {
+        local_port: if is_socks5 {
             "".into()
         } else {
             ui.get_tunnel_edit_local_port()
@@ -472,17 +520,24 @@ fn collect_tunnel_form(ui: &AppWindow) -> TunnelRow {
         },
         plugin_tls_term: plugin,
         plugin_local_addr: if plugin {
-            ui.get_tunnel_edit_plugin_local_addr()
+            let ip = ui.get_tunnel_edit_local_ip();
+            let port = ui.get_tunnel_edit_local_port();
+            let host = if ip.trim().is_empty() {
+                "127.0.0.1"
+            } else {
+                ip.trim()
+            };
+            format!("{host}:{}", port.trim()).into()
         } else {
             "".into()
         },
         plugin_cert_file: if plugin {
-            ui.get_tunnel_edit_plugin_cert_file()
+            resolve_tunnel_cert_file(ui).into()
         } else {
             "".into()
         },
         plugin_key_file: if plugin {
-            ui.get_tunnel_edit_plugin_key_file()
+            resolve_tunnel_key_file(ui).into()
         } else {
             "".into()
         },
@@ -687,6 +742,8 @@ fn main() -> Result<(), slint::PlatformError> {
         .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
         .with(client_log_layer::ClientUiLogLayer::new(runtime::handle()))
         .init();
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
 
     let ui = AppWindow::new()?;
     let prefs = ui_prefs::load();
@@ -997,6 +1054,9 @@ fn main() -> Result<(), slint::PlatformError> {
             reset_log_ui_cursor();
             ui.set_log_lines(slint::ModelRc::from(log_buffer::make_model()));
         }
+        if page == AppPage::Cert {
+            cert_bridge::refresh(&ui);
+        }
     });
 
     wire_tunnel_and_config(&ui, remotes_gen.clone(), tray_weak);
@@ -1120,7 +1180,6 @@ fn wire_tunnel_and_config(
         let ty_idx = ui.get_tunnel_edit_type_index();
         let is_domain = ty_idx == 2 || ty_idx == 3;
         let is_socks5 = ty_idx == 4;
-        let use_plugin = ty_idx == 3 && ui.get_tunnel_edit_plugin_tls_term();
         let local_port = ui.get_tunnel_edit_local_port();
         let remote_port = ui.get_tunnel_edit_remote_port();
 
@@ -1146,12 +1205,7 @@ fn wire_tunnel_and_config(
                 toast_err(&ui, i18n::tunnel_domain_required(loc));
                 return;
             }
-            if use_plugin {
-                if ui.get_tunnel_edit_plugin_local_addr().trim().is_empty() {
-                    toast_err(&ui, i18n::tunnel_plugin_addr_required(loc));
-                    return;
-                }
-            } else if let Err(msg) = require_port_field(
+            if let Err(msg) = require_port_field(
                 local_port.as_str(),
                 i18n::tunnel_local_port_required(loc),
                 i18n::tunnel_local_port_invalid(loc),
@@ -1286,6 +1340,301 @@ fn wire_tunnel_and_config(
             toast_ok(&ui, i18n::tunnel_copied(loc));
         } else {
             toast_err(&ui, i18n::tunnel_copy_failed(loc));
+        }
+    });
+
+    cert_bridge::refresh(&ui);
+
+    let ui_weak = ui.as_weak();
+    ui.on_cert_add(move || {
+        let Some(ui) = ui_weak.upgrade() else {
+            return;
+        };
+        let loc = locale_of(&ui);
+        if ui.get_cert_tab_index() == 1 {
+            ui.set_cert_key_edit_id("".into());
+            ui.set_cert_key_edit_name("".into());
+            ui.set_cert_key_edit_vendor_index(0);
+            ui.set_cert_key_edit_access_key_id("".into());
+            ui.set_cert_key_edit_secret("".into());
+            ui.set_cert_editor_mode(2);
+        } else {
+            let keys = ui.get_key_rows();
+            if keys.row_count() == 0 {
+                toast_err(&ui, i18n::cert_need_key(loc));
+                ui.set_cert_tab_index(1);
+                return;
+            }
+            ui.set_cert_apply_domains("".into());
+            ui.set_cert_apply_key_index(0);
+            ui.set_cert_issue_step(-1);
+            ui.set_cert_issue_failed(false);
+            ui.set_cert_editor_mode(1);
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    let issue_cancel: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+    let issue_cancel_for_cancel = issue_cancel.clone();
+    ui.on_cert_apply_cancel(move || {
+        if let Some(ui) = ui_weak.upgrade() {
+            if ui.get_cert_issuing() {
+                issue_cancel_for_cancel.store(true, Ordering::SeqCst);
+                ui.set_cert_issuing(false);
+                ui.set_cert_issue_step(-1);
+                ui.set_cert_issue_failed(false);
+                ui.set_cert_editor_mode(0);
+                let loc = locale_of(&ui);
+                toast_ok(&ui, i18n::cert_issue_cancelled(loc));
+                push_log(&ui, "INFO  acme: issue cancelled by user");
+                return;
+            }
+            ui.set_cert_issue_step(-1);
+            ui.set_cert_issue_failed(false);
+            ui.set_cert_editor_mode(0);
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    let issue_cancel_for_submit = issue_cancel.clone();
+    ui.on_cert_apply_submit(move || {
+        let Some(ui) = ui_weak.upgrade() else {
+            return;
+        };
+        let loc = locale_of(&ui);
+        if ui.get_cert_issuing() {
+            return;
+        }
+        let domains_raw = ui.get_cert_apply_domains().to_string();
+        let domains: Vec<String> = domains_raw
+            .split(|c: char| c == ',' || c == '，' || c.is_whitespace())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if domains.is_empty() {
+            toast_err(&ui, i18n::cert_domains_required(loc));
+            return;
+        }
+        let keys = ui.get_key_rows();
+        let Some(key) = keys.row_data(ui.get_cert_apply_key_index() as usize) else {
+            toast_err(&ui, i18n::cert_need_key(loc));
+            return;
+        };
+        let provider_id = key.id.to_string();
+        issue_cancel_for_submit.store(false, Ordering::SeqCst);
+        ui.set_cert_issue_failed(false);
+        ui.set_cert_issue_step(0);
+        ui.set_cert_issuing(true);
+        push_log(
+            &ui,
+            &format!("INFO  acme: issue start domains={}", domains.join(",")),
+        );
+        let ui_weak2 = ui.as_weak();
+        let progress = cert_bridge::IssueProgress::new(ui.as_weak());
+        let cancel = issue_cancel_for_submit.clone();
+        let store = {
+            let g = cert::store().lock().unwrap_or_else(|e| e.into_inner());
+            g.clone()
+        };
+        runtime::spawn(async move {
+            let progress = progress;
+            let cancel_flag = cancel.clone();
+            let timeout_cancel = cancel.clone();
+            let issue = cert::issue(
+                &store,
+                cert::IssueRequest {
+                    domains,
+                    provider_id,
+                },
+                cancel,
+                move |step| progress.report(step),
+            );
+            tokio::pin!(issue);
+            let result = tokio::select! {
+                r = &mut issue => r,
+                _ = tokio::time::sleep(cert::ISSUE_TIMEOUT) => {
+                    timeout_cancel.store(true, Ordering::SeqCst);
+                    match issue.await {
+                        Ok(cert) => Ok(cert),
+                        Err(e) if e.to_string().contains("cancelled") => {
+                            Err(anyhow::anyhow!("timeout"))
+                        }
+                        Err(e) => Err(e),
+                    }
+                }
+            };
+
+            let _ = slint::invoke_from_event_loop(move || {
+                let Some(ui) = ui_weak2.upgrade() else {
+                    return;
+                };
+                if cancel_flag.load(Ordering::SeqCst) && !ui.get_cert_issuing() {
+                    return;
+                }
+                let loc = locale_of(&ui);
+                ui.set_cert_issuing(false);
+                match result {
+                    Ok(_) => {
+                        ui.set_cert_issue_step(-1);
+                        ui.set_cert_issue_failed(false);
+                        cert_bridge::refresh(&ui);
+                        ui.set_cert_editor_mode(0);
+                        toast_ok(&ui, i18n::cert_applied(loc));
+                        push_log(&ui, "INFO  acme: issue ok");
+                    }
+                    Err(e) => {
+                        let msg = e.to_string();
+                        if msg.contains("cancelled") {
+                            ui.set_cert_issue_step(-1);
+                            ui.set_cert_issue_failed(false);
+                            ui.set_cert_editor_mode(0);
+                            return;
+                        }
+                        if msg.contains("timeout") {
+                            ui.set_cert_issue_failed(true);
+                            toast_err(&ui, i18n::cert_issue_timeout(loc));
+                            push_log(&ui, "ERROR acme: issue timed out");
+                            tracing::error!("acme: issue timed out");
+                            return;
+                        }
+                        ui.set_cert_issue_failed(true);
+                        let detail = format!("{e:#}");
+                        toast_err(&ui, i18n::cert_issue_failed(loc, &detail));
+                        push_log(&ui, &format!("ERROR acme: issue failed: {detail}"));
+                        tracing::error!(error = %detail, "acme: issue failed");
+                    }
+                }
+            });
+        });
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_cert_key_save(move || {
+        let Some(ui) = ui_weak.upgrade() else {
+            return;
+        };
+        let loc = locale_of(&ui);
+        let name = ui.get_cert_key_edit_name().to_string();
+        if name.trim().is_empty() {
+            toast_err(&ui, i18n::cert_key_name_required(loc));
+            return;
+        }
+        let id = ui.get_cert_key_edit_id().to_string();
+        let secret = ui.get_cert_key_edit_secret().to_string();
+        if id.is_empty() && secret.trim().is_empty() {
+            toast_err(&ui, i18n::cert_secret_required(loc));
+            return;
+        }
+        match cert_bridge::save_provider(
+            &id,
+            &name,
+            ui.get_cert_key_edit_vendor_index(),
+            ui.get_cert_key_edit_access_key_id().as_str(),
+            &secret,
+        ) {
+            Ok(()) => {
+                cert_bridge::refresh(&ui);
+                ui.set_cert_editor_mode(0);
+                toast_ok(&ui, i18n::cert_saved(loc));
+            }
+            Err(e) => toast_err(&ui, e.to_string()),
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_cert_key_cancel(move || {
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.set_cert_editor_mode(0);
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_cert_key_edit(move |index| {
+        let Some(ui) = ui_weak.upgrade() else {
+            return;
+        };
+        let keys = ui.get_key_rows();
+        let Some(k) = keys.row_data(index as usize) else {
+            return;
+        };
+        ui.set_cert_key_edit_id(k.id.clone());
+        ui.set_cert_key_edit_name(k.name.clone());
+        ui.set_cert_key_edit_vendor_index(k.vendor_index);
+        ui.set_cert_key_edit_access_key_id(k.access_key_id.clone());
+        ui.set_cert_key_edit_secret("".into());
+        ui.set_cert_editor_mode(2);
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_cert_key_delete(move |index| {
+        let Some(ui) = ui_weak.upgrade() else {
+            return;
+        };
+        let loc = locale_of(&ui);
+        let keys = ui.get_key_rows();
+        let Some(k) = keys.row_data(index as usize) else {
+            return;
+        };
+        match cert_bridge::delete_provider(k.id.as_str()) {
+            Ok(()) => {
+                cert_bridge::refresh(&ui);
+                toast_ok(&ui, i18n::cert_deleted(loc));
+            }
+            Err(e) => toast_err(&ui, e.to_string()),
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_cert_detail(move |index| {
+        let Some(ui) = ui_weak.upgrade() else {
+            return;
+        };
+        let certs = ui.get_cert_rows();
+        let Some(c) = certs.row_data(index as usize) else {
+            return;
+        };
+        let id = c.id.to_string();
+        let (cert_path, key_path) = cert_bridge::resolve_library_paths(&id).unwrap_or_default();
+        ui.set_cert_detail_id(c.id.clone());
+        ui.set_cert_detail_domains(c.domains.clone());
+        ui.set_cert_detail_not_after(c.not_after.clone());
+        ui.set_cert_detail_provider_name(c.provider_name.clone());
+        ui.set_cert_detail_cert_path(cert_path.into());
+        ui.set_cert_detail_key_path(key_path.into());
+        ui.set_cert_editor_mode(3);
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_cert_delete(move |index| {
+        let Some(ui) = ui_weak.upgrade() else {
+            return;
+        };
+        let loc = locale_of(&ui);
+        let certs = ui.get_cert_rows();
+        let Some(c) = certs.row_data(index as usize) else {
+            return;
+        };
+        let tunnels: Vec<TunnelRow> = {
+            let m = ui.get_tunnels();
+            (0..m.row_count()).filter_map(|i| m.row_data(i)).collect()
+        };
+        if cert_bridge::cert_paths_used_by_tunnels(c.id.as_str(), &tunnels) {
+            toast_err(&ui, i18n::cert_in_use(loc));
+            return;
+        }
+        match cert_bridge::delete_cert(c.id.as_str()) {
+            Ok(()) => {
+                cert_bridge::refresh(&ui);
+                toast_ok(&ui, i18n::cert_deleted(loc));
+            }
+            Err(e) => toast_err(&ui, e.to_string()),
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_cert_detail_close(move || {
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.set_cert_editor_mode(0);
         }
     });
 

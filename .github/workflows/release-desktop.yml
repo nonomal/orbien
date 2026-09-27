@@ -47,6 +47,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Prefer crates.io
+        uses: ./.github/actions/prefer-crates-io
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -80,7 +83,7 @@ jobs:
             --arch "${{ matrix.goarch }}" \
             --outdir dist/desktop
 
-      - name: Package Windows EXE + ZIP
+      - name: Package Windows ZIP
         if: matrix.artifact == 'windows'
         shell: bash
         run: |
@@ -108,6 +111,5 @@ jobs:
           path: |
             dist/desktop/*.dmg
             dist/desktop/*.zip
-            dist/desktop/*.exe
             dist/desktop/*.deb
           if-no-files-found: error

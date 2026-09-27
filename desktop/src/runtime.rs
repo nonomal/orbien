@@ -58,6 +58,13 @@ pub fn reload_async(
     });
 }
 
+pub fn spawn<F>(fut: F)
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    runtime().spawn(fut);
+}
+
 pub fn stop_async(on_done: impl FnOnce() + Send + 'static) {
     let h = handle();
     runtime().spawn(async move {

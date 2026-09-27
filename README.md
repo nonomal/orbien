@@ -21,7 +21,7 @@
     <img src="https://img.shields.io/badge/Rust-Tokio-orange?style=for-the-badge&logo=rust&logoColor=white" alt="Rust"/>
   </a>
   <a href="https://github.com/orbien-org/orbien/releases">
-    <img src="https://img.shields.io/badge/orbien-3.7.0-blue?style=for-the-badge" alt="orbien:3.7.0"/>
+    <img src="https://img.shields.io/badge/orbien-3.8.0-blue?style=for-the-badge" alt="orbien:3.8.0"/>
   </a>
   <a href="https://somsubhra.github.io/github-release-stats/?username=orbien-org&repository=orbien">
     <img src="https://img.shields.io/github/downloads/orbien-org/orbien/total?style=for-the-badge" alt="Downloads"/>
@@ -53,7 +53,7 @@ A lightweight, high-performance, and secure intranet penetration tool with a bin
 - **Transport protocols**: TCP, KCP, WebSocket, QUIC, with TCP multiplexing support
 - **Security**: Token-based tunnel authentication, TLS and mTLS encryption; HTTPS supports transparent forwarding and client-side TLS termination
 - **Cross-platform**: Windows, Linux, macOS, FreeBSD, and more
-- **Operations**: lightweight Web admin UI and cross-platform desktop client for easy configuration and monitoring
+- **Operations**: lightweight server-side Web admin UI and cross-platform native desktop client; supports config hot-reload and ACME automatic certificate issuance
 
 ## Quick Start
 

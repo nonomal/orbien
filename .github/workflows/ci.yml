@@ -16,6 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Prefer crates.io
+        uses: ./.github/actions/prefer-crates-io
+
       - name: Build server-ui
         uses: ./.github/actions/build-server-ui
 

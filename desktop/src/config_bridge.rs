@@ -7,23 +7,40 @@ use orbien_core::config::{
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub fn default_config_path() -> PathBuf {
-    let base = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::current_dir().ok())
-        .unwrap_or_else(|| PathBuf::from("."));
+pub fn data_dir() -> PathBuf {
     #[cfg(target_os = "macos")]
     {
+        let base = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("."));
         let dir = base.join("Library/Application Support/com.orbien.desktop");
         let _ = fs::create_dir_all(&dir);
-        return dir.join("orbien.toml");
+        return dir;
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
+        let base = std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
+            .unwrap_or_else(|| PathBuf::from("."));
+        let dir = base.join("orbien");
+        let _ = fs::create_dir_all(&dir);
+        return dir;
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let base = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_else(|| PathBuf::from("."));
         let dir = base.join(".config").join("orbien");
         let _ = fs::create_dir_all(&dir);
-        dir.join("orbien.toml")
+        dir
     }
+}
+
+pub fn default_config_path() -> PathBuf {
+    data_dir().join("orbien.toml")
 }
 
 pub fn resolve_path(config_path: &str) -> PathBuf {
@@ -358,9 +375,16 @@ pub fn tunnel_from_parts(
             ..Default::default()
         })
     } else if ty == "https" && plugin_tls_term {
+        let service = if !local_port.trim().is_empty() || !local_ip.trim().is_empty() {
+            assemble_service(local_ip, local_port)?
+        } else if !plugin_local_addr.trim().is_empty() {
+            plugin_local_addr.trim().into()
+        } else {
+            assemble_service("127.0.0.1", "8080")?
+        };
         Some(PluginConfig {
             plugin_type: "tls-term".into(),
-            service: plugin_local_addr.trim().into(),
+            service,
             cert_file: plugin_cert_file.trim().into(),
             key_file: plugin_key_file.trim().into(),
             host_header_rewrite: plugin_host_rewrite.trim().into(),
@@ -424,6 +448,11 @@ pub fn tunnel_to_parts(p: &TunnelConfig) -> TunnelParts {
 
     let (local_ip, local_port) = if socks5.is_some() {
         (String::new(), String::new())
+    } else if let Some(pl) = tls_term {
+        match parse_host_port(&pl.service, 8080) {
+            Ok((host, port)) => (host, port.to_string()),
+            Err(_) => ("127.0.0.1".into(), "8080".into()),
+        }
     } else if p.service.trim().is_empty() {
         ("127.0.0.1".into(), "0".into())
     } else {
@@ -436,8 +465,8 @@ pub fn tunnel_to_parts(p: &TunnelConfig) -> TunnelParts {
     TunnelParts {
         name: p.name.clone(),
         tunnel_type,
-        local_ip,
-        local_port,
+        local_ip: local_ip.clone(),
+        local_port: local_port.clone(),
         remote_port: p.remote_port.to_string(),
         domains: p.domains.join(","),
         locations: p.locations.join(","),
@@ -448,9 +477,11 @@ pub fn tunnel_to_parts(p: &TunnelConfig) -> TunnelParts {
         bandwidth_limit_side: p.transport.bandwidth_limit_side.clone(),
         proxy_protocol_version: p.transport.proxy_protocol_version.clone(),
         plugin_tls_term: tls_term.is_some(),
-        plugin_local_addr: tls_term
-            .map(|pl| pl.service.clone())
-            .unwrap_or_else(|| "127.0.0.1:8080".into()),
+        plugin_local_addr: if tls_term.is_some() {
+            format!("{local_ip}:{local_port}")
+        } else {
+            String::new()
+        },
         plugin_cert_file: tls_term.map(|pl| pl.cert_file.clone()).unwrap_or_default(),
         plugin_key_file: tls_term.map(|pl| pl.key_file.clone()).unwrap_or_default(),
         plugin_host_rewrite: tls_term

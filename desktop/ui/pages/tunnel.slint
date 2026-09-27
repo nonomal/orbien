@@ -25,6 +25,9 @@ export component TunnelPage inherits Rectangle {
     in-out property <int> edit-proxy-protocol-index: 0;
     in-out property <bool> edit-plugin-tls-term: false;
     in-out property <string> edit-plugin-local-addr: "127.0.0.1:8080";
+    in-out property <int> edit-cert-source-index: 1;
+    in-out property <int> edit-cert-library-index: 0;
+    in property <[string]> cert-library-labels;
     in-out property <string> edit-plugin-cert-file: "";
     in-out property <string> edit-plugin-key-file: "";
     in-out property <string> edit-plugin-host-rewrite: "";
@@ -170,6 +173,9 @@ export component TunnelPage inherits Rectangle {
                     edit-proxy-protocol-index <=> root.edit-proxy-protocol-index;
                     edit-plugin-tls-term <=> root.edit-plugin-tls-term;
                     edit-plugin-local-addr <=> root.edit-plugin-local-addr;
+                    edit-cert-source-index <=> root.edit-cert-source-index;
+                    edit-cert-library-index <=> root.edit-cert-library-index;
+                    cert-library-labels: root.cert-library-labels;
                     edit-plugin-cert-file <=> root.edit-plugin-cert-file;
                     edit-plugin-key-file <=> root.edit-plugin-key-file;
                     edit-plugin-host-rewrite <=> root.edit-plugin-host-rewrite;
